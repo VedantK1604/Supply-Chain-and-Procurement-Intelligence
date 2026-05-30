@@ -1,9 +1,14 @@
-# 🎬 Bollywood GraphRAG
+# Supply Chain & Procurement Intelligence GraphRAG
 
-A complete GraphRAG (Graph Retrieval-Augmented Generation) system built on a **Bollywood knowledge graph**. Ask questions about Hindi cinema in plain English — the system finds the answer by traversing a Neo4j graph of movies, actors, directors, composers, and awards, then generating a natural language response via GPT-4o.
+A GraphRAG system for supply-chain, procurement, supplier-risk, and logistics intelligence. The project builds a Neo4j knowledge graph of suppliers, manufacturers, components, products, customers, locations, risk events, warehouses, carriers, contracts, certifications, and shipments, then answers natural-language questions using hybrid retrieval, graph traversal, and an OpenAI chat model.
 
----
-Built as part of **Codeverra** to help you learn coding, DSA, data science, and AI the right way. Learn more: https://codeverra.com
+Use it to ask questions like:
+
+- What is the supply chain risk exposure for Apple Inc due to Taiwan Strait tensions?
+- Which suppliers provide Lithium-Ion Battery and what are their countries?
+- Recommend alternative suppliers for A14 Bionic Chip with good qualification status.
+- Analyze the impact of Red Sea Shipping Disruption on Tesla's battery supply chain.
+- Which suppliers should I prioritize for dual-sourcing OLED Display Panel?
 
 ---
 
@@ -11,35 +16,104 @@ Built as part of **Codeverra** to help you learn coding, DSA, data science, and 
 
 | Concept | How it appears in this project |
 |---|---|
-| Graph database fundamentals | Neo4j with a Bollywood ontology |
-| Cypher query language | Loader, traversal, and stat queries |
-| Vector embeddings on graph nodes | Each node carries an OpenAI embedding |
-| GraphRAG pipeline | Vector search → graph traversal → LLM answer |
-| FastAPI backend | REST endpoints for all pipeline operations |
-| Streamlit frontend | 4-page chat + explorer interface |
-| Docker Compose | One command to start everything |
+| Knowledge graph modeling | Neo4j ontology for procurement, suppliers, risks, logistics, and contracts |
+| GraphRAG | Hybrid search -> graph traversal -> grounded LLM answer generation |
+| Supplier intelligence | Tier, country, reliability, ESG, capacity, audit, financial health, and strategic importance |
+| Procurement analysis | Contracts, payment terms, order quantities, cost, sourcing links, and qualification status |
+| Supply-chain risk | Risk events, affected entities, mitigation actions, dual sourcing, and alternatives |
+| Logistics visibility | Warehouses, routes, carriers, shipments, transit corridors, and delays |
+| API + UI | FastAPI backend with a Streamlit chat and graph exploration frontend |
+| Docker workflow | Neo4j, API, and Streamlit services in Docker Compose |
 
 ---
 
 ## Knowledge Graph Ontology
 
-```
+```text
 NODES
 ──────────────────────────────────────────────────────────
-Person          {name, born, profession, hometown}
-Movie           {title, year, genre, box_office_crore, description}
-ProductionHouse {name, founded, founder, hq}
-Award           {name, category, year}
+Supplier              {name, tier, country, reliability_score, esg_rating, capacity, ...}
+Manufacturer          {name, industry, hq, employees, annual_revenue_usd_bn, ...}
+Component             {name, category, criticality, avg_price_usd, lead_time_weeks_avg, ...}
+Product               {name, category, key_technology, ...}
+Customer              {name, type, industry, country, ...}
+Location              {name, country, region, type, strategic_role, ...}
+RiskEvent             {name, severity, category, likelihood, ...}
+Warehouse             {name, type, location, capacity_units, owner, ...}
+LogisticsCarrier      {name, mode, reliability_score, coverage, ...}
+ProcurementContract   {contract_id, buyer, supplier, annual_value_usd_mn, ...}
+Certification         {name, issuing_body, ...}
+Shipment              {shipment_id, status, departure_date, eta_date, delay_days, ...}
+MitigationAction      {name}
+Insurer               {name}
+Auditor               {name}
 
 RELATIONSHIPS
 ──────────────────────────────────────────────────────────
-(Person) -[:ACTED_IN        {character, lead_role}]-> (Movie)
-(Person) -[:DIRECTED]->                               (Movie)
-(Person) -[:COMPOSED_MUSIC_FOR]->                     (Movie)
-(Person) -[:WON]->                                    (Award)
-(Movie)  -[:WON]->                                    (Award)
-(ProductionHouse) -[:PRODUCED]->                      (Movie)
+(Supplier)            -[:SUPPLIES]->             (Component)
+(Manufacturer)        -[:PRODUCES]->             (Product)
+(Product)             -[:USES]->                 (Component)
+(Entity)              -[:LOCATED_IN]->           (Location)
+(Entity)              -[:HAS_RISK]->             (RiskEvent)
+(Component)           -[:HAS_ALTERNATIVE]->      (Supplier)
+(Entity)              -[:SHIPS_VIA]->            (LogisticsCarrier)
+(Entity)              -[:STORED_IN]->            (Warehouse)
+(Entity)              -[:CERTIFIED_BY]->         (Certification)
+(Entity)              -[:SELLS_TO]->             (Customer)
+(Supplier)            -[:MANUFACTURES_FOR]->     (Manufacturer)
+(Manufacturer)        -[:SOURCES_FROM]->         (Supplier)
+(Entity)              -[:COMPETES_WITH]->        (Entity)
+(Location)            -[:TRANSITS_THROUGH]->     (Location)
+(RiskEvent)           -[:MITIGATED_BY]->         (MitigationAction)
+(RiskEvent)           -[:AFFECTS]->              (Entity)
+(Entity)              -[:CONTRACTED_WITH]->      (Supplier)
+(Entity)              -[:OWNS_WAREHOUSE]->       (Warehouse)
+(LogisticsCarrier)    -[:CARRIES_FOR]->          (Entity)
+(Location)            -[:ADJACENT_TO]->          (Location)
+(Supplier)            -[:DUAL_SOURCED_WITH]->    (Supplier)
+(Supplier)            -[:QUALIFIED_BY]->         (Manufacturer)
+(Shipment)            -[:OF_PRODUCT]->           (Product)
+(Shipment)            -[:TO_CUSTOMER]->          (Customer)
+(Shipment)            -[:FROM]->                 (Location)
+(Shipment)            -[:TO]->                   (Location)
+(Entity)              -[:INSURED_BY]->           (Insurer)
+(Supplier)            -[:AUDITED_BY]->           (Auditor)
 ```
+
+The bundled dataset currently includes suppliers, manufacturers, components, products, customers, locations, risk events, warehouses, carriers, contracts, certifications, and shipments for a procurement intelligence demo.
+
+---
+
+## Architecture
+
+```text
+User question
+     |
+     v
+Hybrid retrieval
+OpenAI embedding + keyword overlap over graph node descriptions
+     |
+     v
+Graph traversal
+Collect 1-4 hop neighborhoods around the most relevant entities
+     |
+     v
+Context assembly
+Convert graph facts into structured text triples
+     |
+     v
+LLM answer generation
+Answer using only retrieved supply-chain graph context
+```
+
+Core implementation files:
+
+- `src/loader.py` loads the graph into Neo4j.
+- `src/embeddings.py` builds retrieval text, stores embeddings, and performs hybrid search.
+- `src/graphrag.py` retrieves subgraphs and generates grounded answers.
+- `api.py` exposes FastAPI endpoints.
+- `app.py` provides the Streamlit UI.
+- `data/supply_chain_data.py` contains the demo graph data.
 
 ---
 
@@ -47,106 +121,109 @@ RELATIONSHIPS
 
 ### Prerequisites
 
-| Tool | Version | Notes |
-|---|---|---|
-| Docker Desktop | Latest | Must be running |
-| Python | 3.11+ | For running scripts locally |
-| OpenAI API key | — | Required for embeddings + GPT-4o |
+| Tool | Notes |
+|---|---|
+| Docker Desktop / Docker Engine | Required for Neo4j and the full Compose workflow |
+| Python 3.11+ | Required for local API, Streamlit, loader, and embedding scripts |
+| OpenAI API key | Required for embeddings and answer generation |
 
-### 1. Clone and configure
+### 1. Configure environment
 
-```bash
-git clone <repo-url>
-cd bollywood-graphrag
+Create a `.env` file in the project root:
 
-# Copy the env template
-cp .env.example .env
-
-# Edit .env and add your OpenAI key
-```
-
-Your `.env` file:
-```
+```env
 OPENAI_API_KEY=sk-...
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=supplychain!
+API_URL=http://localhost:8000
 ```
 
 ### 2. Start Neo4j
 
 ```bash
 docker compose up neo4j -d
-
-# Wait ~15 seconds, then verify:
-docker compose logs neo4j | grep "Started"
 ```
 
-Open the Neo4j Browser at http://localhost:7474 (user: `neo4j`, password: `supplychain!`)
+Open Neo4j Browser at:
+
+```text
+http://localhost:7474
+```
+
+Login:
+
+```text
+Username: neo4j
+Password: supplychain!
+```
 
 ### 3. Install Python dependencies
 
 ```bash
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
+```
+
+On Windows, activate the environment with:
+
+```bash
+venv\Scripts\activate
 ```
 
 ### 4. Load the knowledge graph
 
+Run this from the project root:
+
 ```bash
-cd src
-python loader.py
+PYTHONPATH="$PWD:$PWD/src" python3 src/loader.py
 ```
 
-Expected output:
-```
-[1/2] Loading nodes...
-  ✓ Constraints active
-  ✓ 35 Person nodes
-  ✓ 26 Movie nodes
-  ✓ 10 ProductionHouse nodes
-  ✓ 25 Award nodes
-
-[2/2] Loading relationships...
-  ✓ 41 ACTED_IN relationships
-  ✓ 27 DIRECTED relationships
-  ...
-```
+The loader clears and reloads the demo graph. It creates uniqueness constraints, loads all node types, creates relationships, and prints a graph summary.
 
 ### 5. Add vector embeddings
 
+Run this once after loading the graph:
+
 ```bash
-python embeddings.py
+PYTHONPATH="$PWD:$PWD/src" python3 -c "from src.db import Neo4jConnection; from src.embeddings import add_embeddings; db = Neo4jConnection(); add_embeddings(db); db.close()"
 ```
 
-This calls the OpenAI embeddings API for each node and stores the vectors in Neo4j. Run once; re-running is safe (overwrites existing embeddings).
+Embeddings are stored directly on Neo4j nodes as `embedding` and `embedding_text` properties. Re-running the command refreshes existing embeddings.
 
-### 6. Start the FastAPI backend
-
-The Streamlit app talks to FastAPI over HTTP — FastAPI must be running first.
+### 6. Start the API
 
 ```bash
-# Still inside src/
 uvicorn api:app --reload --port 8000
 ```
 
-Leave this terminal running. Open http://localhost:8000/docs to confirm it's up.
+FastAPI docs:
 
-### 7. Run the Streamlit app
+```text
+http://localhost:8000/docs
+```
 
-Open a **new terminal**, activate the venv, then:
+### 7. Start Streamlit
+
+In a second terminal:
 
 ```bash
-cd src
+source venv/bin/activate
 streamlit run app.py
 ```
 
-Open http://localhost:8501
+Streamlit app:
 
-> **Note:** You need both terminals running at the same time — one for FastAPI, one for Streamlit. Neo4j (Docker) must also be up. The easiest way to run everything together is Docker Compose (step 8).
+```text
+http://localhost:8501
+```
 
-### 8. (Recommended) Start everything with Docker Compose
+---
+
+## Docker Compose Workflow
+
+You can also start the complete stack:
 
 ```bash
 docker compose up --build
@@ -156,138 +233,153 @@ docker compose up --build
 |---|---|
 | Neo4j Browser | http://localhost:7474 |
 | FastAPI docs | http://localhost:8000/docs |
-| Streamlit chat | http://localhost:8501 |
+| Streamlit app | http://localhost:8501 |
+
+After the services are up, load data and embeddings from your local terminal using the commands above, or run equivalent commands inside the API container.
 
 ---
 
-## Usage
+## Streamlit App
 
-### Streamlit Chat Interface
+The UI has four main pages:
 
-The **💬 Chat** page lets you ask natural language questions. Try:
+| Page | Purpose |
+|---|---|
+| Chat | Ask natural-language supply-chain and procurement questions |
+| Explore | Look up an entity and inspect its graph neighborhood |
+| Suppliers | Browse suppliers by tier and open full supplier context |
+| Stats | View node and relationship counts, and run read-only Cypher queries |
 
-- *"Which films has Shah Rukh Khan done with Yash Raj Films?"*
-- *"Which music composers have worked with Aamir Khan productions?"*
-- *"Name all the National Award winning films in the graph."*
-- *"Which actors directed by Rajkumar Hirani also worked with AR Rahman?"*
+Suggested questions are included in the Chat page to help test supplier risk, alternatives, dual sourcing, and disruption analysis.
 
-The **🔍 Explore** page lets you look up any entity by name and see its full graph neighbourhood.
+---
 
-### FastAPI Endpoints
+## FastAPI Endpoints
 
 ```bash
-# Ask a question
+# Health check
+curl http://localhost:8000/health
+
+# Ask a GraphRAG question
 curl -X POST http://localhost:8000/ask \
   -H "Content-Type: application/json" \
-  -d '{"question": "Which films did Aamir Khan direct?", "top_k": 3, "hops": 2}'
+  -d '{"question": "Which suppliers provide Lithium-Ion Battery and what are their countries?", "top_k": 5, "hops": 2}'
 
-# Vector search
-curl "http://localhost:8000/search?q=revenge+thriller&label=Movie"
+# Hybrid search over embedded graph nodes
+curl "http://localhost:8000/search?q=Taiwan+risk&top_k=8"
 
-# Get an entity's neighbourhood
-curl "http://localhost:8000/graph/Dangal?label=Movie&hops=2"
+# Entity neighborhood
+curl "http://localhost:8000/graph/TSMC?label=Supplier&hops=2"
 
-# Filmography of a person
-curl "http://localhost:8000/person/AR%20Rahman/filmography"
+# Suppliers, optionally filtered by tier
+curl "http://localhost:8000/suppliers?tier=Tier1"
+
+# Risk events
+curl "http://localhost:8000/risks"
 
 # Graph statistics
 curl "http://localhost:8000/stats"
+
+# Read-only Cypher query
+curl -X POST http://localhost:8000/cypher \
+  -H "Content-Type: application/json" \
+  -d '{"query": "MATCH (s:Supplier) RETURN s.name, s.country, s.tier, s.reliability_score LIMIT 10"}'
 ```
+
+---
+
+## Example Questions
+
+Try these in Streamlit or through `POST /ask`:
+
+- What is the supply chain risk exposure for Apple Inc due to Taiwan Strait tensions?
+- Tell me about TSMC including risks and alternatives.
+- Show all Tier 1 suppliers in Taiwan.
+- Which suppliers provide Lithium-Ion Battery?
+- Recommend alternative suppliers for A14 Bionic Chip with good qualification status.
+- Analyze the impact of Red Sea Shipping Disruption on Tesla's battery supply chain.
+- Which suppliers should I prioritize for dual-sourcing OLED Display Panel?
+- Which suppliers have high reliability and strong ESG ratings?
+- What shipments are delayed and which customers are affected?
 
 ---
 
 ## Project Structure
 
-```
-bollywood-graphrag/
-├── docker-compose.yml          ← All services: Neo4j + API + Streamlit
+```text
+Supply-Chain-&-Procurement-Intelligence/
+├── README.md
 ├── requirements.txt
-├── .env.example
-├── Dockerfile.api              ← FastAPI container
-├── Dockerfile.streamlit        ← Streamlit container
+├── docker-compose.yml
+├── Dockerfile.api
+├── Dockerfile.streamlit
+├── api.py                         # FastAPI backend
+├── app.py                         # Streamlit frontend
+├── data/
+│   ├── supply_chain_data.py        # Graph nodes and relationships
+│   └── logo/
+│       └── supply_chain_logo.png
 └── src/
-    ├── db.py                   ← Neo4j connection wrapper
-    ├── loader.py               ← Load ontology + data into Neo4j
-    ├── embeddings.py           ← Compute + store node embeddings
-    ├── graphrag.py             ← The full GraphRAG pipeline
-    ├── api.py                  ← FastAPI backend
-    ├── app.py                  ← Streamlit frontend
-    └── data/
-        └── bollywood_data.py   ← All graph data (nodes + relationships)
+    ├── db.py                       # Neo4j connection wrapper
+    ├── loader.py                   # Load ontology and data into Neo4j
+    ├── embeddings.py               # Node text, embeddings, hybrid retrieval
+    └── graphrag.py                 # Subgraph retrieval and LLM answering
 ```
 
 ---
 
-## How the GraphRAG Pipeline Works
+## Interesting Cypher Queries
 
-```
-User question (text)
-       │
-       ▼
-┌──────────────────────────────┐
-│  1. Vector Search            │  Embed question → find top-k similar nodes
-│     (embeddings.py)          │  e.g. "Who directed PK?" → [Rajkumar Hirani, PK]
-└──────────────────┬───────────┘
-                   │  top-k node identifiers
-                   ▼
-┌──────────────────────────────┐
-│  2. Graph Traversal          │  Walk N hops from each identified node
-│     (graphrag.py)            │  Collect all connected facts as triples
-└──────────────────┬───────────┘
-                   │  subgraph as structured text
-                   ▼
-┌──────────────────────────────┐
-│  3. LLM Answer Generation    │  GPT-4o reasons over graph context
-│     (OpenAI GPT-4o)          │  Returns grounded, verifiable answer
-└──────────────────────────────┘
-```
-
----
-
-## Extending the Project
-
-### Adding more movies
-Add entries to `MOVIES`, `ACTED_IN`, `DIRECTED` etc. in `src/data/bollywood_data.py`, then re-run `loader.py` and `embeddings.py`.
-
-### Adding a new relationship type
-1. Add rows to the relevant list in `bollywood_data.py`
-2. Add a loading function in `loader.py`
-3. Call it from `load_all()`
-
-### Switching to a different LLM
-Replace the `openai` calls in `graphrag.py` with any OpenAI-compatible API (Anthropic, Gemini, Groq etc.).
-
----
-
-## Interesting Graph Queries to Try in Neo4j Browser
+Run these in Neo4j Browser or through `POST /cypher`.
 
 ```cypher
--- All Aamir Khan films with box office > 200 crore
-MATCH (p:Person {name: 'Aamir Khan'})-[:ACTED_IN]->(m:Movie)
-WHERE m.box_office_crore > 200
-RETURN m.title, m.year, m.box_office_crore ORDER BY m.box_office_crore DESC
+-- Highest reliability suppliers
+MATCH (s:Supplier)
+RETURN s.name, s.tier, s.country, s.reliability_score, s.esg_rating
+ORDER BY s.reliability_score DESC
+LIMIT 10;
+```
 
--- Directors who also acted in their own films
-MATCH (p:Person)-[:DIRECTED]->(m:Movie)<-[:ACTED_IN]-(p)
-RETURN p.name, m.title
+```cypher
+-- Components supplied by Tier 1 suppliers in Taiwan
+MATCH (s:Supplier)-[:SUPPLIES]->(c:Component)
+WHERE s.tier = 'Tier1' AND s.country = 'Taiwan'
+RETURN s.name AS supplier, c.name AS component, c.criticality AS criticality
+ORDER BY supplier, component;
+```
 
--- Movies where AR Rahman composed and the film won a National Award
-MATCH (ar:Person {name:'AR Rahman'})-[:COMPOSED_MUSIC_FOR]->(m:Movie)-[:WON]->(a:Award)
-WHERE a.category = 'National'
-RETURN m.title, a.name
+```cypher
+-- Risk events affecting suppliers or products
+MATCH (r:RiskEvent)-[a:AFFECTS]->(e)
+RETURN r.name AS risk, r.severity AS risk_severity, labels(e)[0] AS entity_type,
+       e.name AS entity, a.impact_type AS impact_type, a.revenue_impact_usd_mn AS revenue_impact
+ORDER BY revenue_impact DESC;
+```
 
--- Shortest path between Shah Rukh Khan and AR Rahman
-MATCH path = shortestPath(
-    (a:Person {name: 'Shah Rukh Khan'})-[*]-(b:Person {name: 'AR Rahman'})
-)
-RETURN [n IN nodes(path) | coalesce(n.name, n.title)] AS path, length(path) AS hops
+```cypher
+-- Alternative suppliers for a critical component
+MATCH (c:Component {name: 'A14 Bionic Chip'})-[a:HAS_ALTERNATIVE]->(s:Supplier)
+RETURN c.name AS component, s.name AS alternative_supplier, s.country AS country,
+       a.qualification_status AS qualification_status,
+       a.cost_premium_pct AS cost_premium_pct,
+       a.lead_time_delta_days AS lead_time_delta_days;
+```
 
--- All films produced by Yash Raj that crossed 500 crore
-MATCH (ph:ProductionHouse {name: 'Yash Raj Films'})-[:PRODUCED]->(m:Movie)
-WHERE m.box_office_crore > 500
-RETURN m.title, m.year, m.box_office_crore ORDER BY m.box_office_crore DESC
+```cypher
+-- Dual-sourcing relationships
+MATCH (a:Supplier)-[r:DUAL_SOURCED_WITH]->(b:Supplier)
+RETURN a.name AS primary_supplier, b.name AS secondary_supplier,
+       r.component AS component, r.split_pct_primary AS primary_split, r.reason AS reason;
+```
+
+```cypher
+-- Delayed shipments and affected customers
+MATCH (sh:Shipment)-[:OF_PRODUCT]->(p:Product),
+      (sh)-[:TO_CUSTOMER]->(c:Customer)
+WHERE sh.delay_days > 0
+RETURN sh.shipment_id AS shipment, p.name AS product, c.name AS customer,
+       sh.status AS status, sh.eta_date AS eta, sh.delay_days AS delay_days
+ORDER BY sh.delay_days DESC;
 ```
 
 ---
-
-*Built as part of the GraphRAG Masterclass at [codeverra](https://www.codeverra.com)*
