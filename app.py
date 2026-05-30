@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-API_URL = os.getenv("API_URL", "http://localhost:8000")
+API_URL = os.getenv("API_URL", "http://0.0.0.0:8000")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ def api_get(endpoint: str, params: dict = None) -> dict | None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.image("https://img.icons8.com/color/96/000000/supply-chain.png", width=70)
+    st.image("data/logo/supply_chain_logo.png", width=300)
     st.title("📦 Supply Chain & Procurement Intelligence")
     st.caption("GraphRAG × Neo4j × GPT-4o")
     st.divider()
