@@ -1,0 +1,13 @@
+neo4j
+openai
+langchain
+langchain
+langchain
+fastapi
+uvicorn
+streamlit
+httpx
+pydantic
+numpy
+tiktoken
+python-dotenv
